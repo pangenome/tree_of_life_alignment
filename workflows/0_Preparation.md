@@ -53,6 +53,17 @@ cmake -H. -Bbuild && cmake --build build -- -j 48
 mv bin/odgi bin/odgi-f483f9ed5a514a531fbd64833d49cd931ea59943
 cd ..
 
+# For:
+# - odgi stepindex -i graph.og -a 0
+# - odgi untangle verbose log
+# - odgi untangle speed up
+git pull
+git checkout 547e4d76f340dc0da34bae1522308e9b97efd0c9
+git submodule update --init --recursive
+cmake -H. -Bbuild && cmake --build build -- -j 48
+mv bin/odgi bin/odgi-547e4d76f340dc0da34bae1522308e9b97efd0c9
+
+
 git clone --recursive https://github.com/pangenome/pggb.git
 cd pggb
 git checkout master

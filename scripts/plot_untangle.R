@@ -81,7 +81,7 @@ p <- ggplot(
   labs(x = "Position", fill="Strand", alpha="Estimated identity") 
 p
 #+ scale_alpha_discrete(range = c(0.3, 1))# + scale_x_reverse()
-ggsave(plot = p, file.path(path_output, paste0('x.png')), width = width, height = length(unique(x$query.name))*0.75, units = "cm", dpi = 300, bg = "transparent", limitsize = FALSE)
+ggsave(plot = p, path_output, width = width, height = length(unique(x$query.name))*0.75, units = "cm", dpi = 300, bg = "transparent", limitsize = FALSE)
 
 if (false){
   library(png)

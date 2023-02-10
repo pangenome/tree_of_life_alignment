@@ -15,6 +15,8 @@ library(tidyverse)
 
 options(scipen = 999)
 
+panel_spacing <- 0
+
 x <- read.delim(path_untangle_tsv) %>%
   rename(query.name = X.query.name) %>%
   filter(nth.best <= nth_best)

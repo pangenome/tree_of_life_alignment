@@ -174,14 +174,14 @@ done
 
 REFS=/lizardfs/guarracino/chromosome_communities/assemblies/chm13v2+grch38masked.fa.gz
 
-( seq 6 7  ) | while read i; do
+( seq 6 7 ) | while read i; do
     echo chr$i
     # 4 haplotypes (from primates4) + 12 haplotypes (6 diploid assemblies) + 1 haplotype (chm13#chr$i)
     cat \
       chr$i.fa \
-      <(zcat /lizardfs/guarracino/pggb-paper/assemblies/primates4.chr6.fa.gz) \
+      <(zcat /lizardfs/guarracino/pggb-paper/assemblies/primates4.chr$i.fa.gz) \
       <(samtools faidx $REFS $(grep chm13#chr$i $REFS.fai | cut -f 1)) \
-      > primates11.chr$i.fa
+      > primates17.chr$i.fa
     bgzip -@ 48 primates17.chr$i.fa
     samtools faidx primates17.chr$i.fa.gz
 done

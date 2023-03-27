@@ -5,6 +5,7 @@ Variables:
 ```shell
 DIR_BASE=/lizardfs/guarracino/tree_of_life_alignment
 RUN_FASTIX=/home/guarracino/tools/fastix/target/release/fastix-331c1159ea16625ee79d1a82522e800c99206834
+RUN_WFMASH=/home/guarracino/tools/wfmash/build/bin/wfmash-191afe12042962d3c0d5c62936528561753b3da0
 ```
 
 ## Tools
@@ -47,10 +48,10 @@ git clone --recursive https://github.com/pangenome/odgi.git
 cd odgi
 git checkout master
 git pull
-git checkout f483f9ed5a514a531fbd64833d49cd931ea59943
+git checkout fa95f780bbd2602f4b18a60d6b99f345ca6ec387
 git submodule update --init --recursive
 cmake -H. -Bbuild && cmake --build build -- -j 48
-mv bin/odgi bin/odgi-f483f9ed5a514a531fbd64833d49cd931ea59943
+mv bin/odgi bin/odgi-fa95f780bbd2602f4b18a60d6b99f345ca6ec387
 cd ..
 
 # For:
@@ -58,10 +59,10 @@ cd ..
 # - odgi untangle verbose log
 # - odgi untangle speed up
 git pull
-git checkout 547e4d76f340dc0da34bae1522308e9b97efd0c9
+git checkout 2c78159a1b4bf122493075e436ea9c53033f430f
 git submodule update --init --recursive
 cmake -H. -Bbuild && cmake --build build -- -j 48
-mv bin/odgi bin/odgi-547e4d76f340dc0da34bae1522308e9b97efd0c9
+mv bin/odgi bin/odgi-2c78159a1b4bf122493075e436ea9c53033f430f
 
 
 git clone --recursive https://github.com/pangenome/pggb.git
@@ -90,7 +91,8 @@ cd ..
 ```shell
 mkdir -p $DIR_BASE/assemblies
 
-# T2T.primates_assemblies.urls.txt refers to assemblies in https://genomeark.github.io/t2t-draft-assembly/, but took from https://genomeark.s3.amazonaws.com/index.html?prefix=species/ (11 January 2023)
+# T2T.primates_assemblies.urls.txt refers to assemblies in https://genomeark.github.io/t2t-draft-assembly/, but they were taken from https://genomeark.s3.amazonaws.com/index.html?prefix=species/ (11 January 2023)
+# https://docs.google.com/spreadsheets/d/1bWZ1SjCn6I34QMqXeg-zwzK7D-EDizw1GQCkQ_Ily6E/edit#gid=0
 sbatch -p workers -c 48 --wrap "cd $DIR_BASE/assemblies; (echo https://hgdownload.soe.ucsc.edu/goldenPath/hs1/bigZips/hs1.fa.gz; cat ../data/T2T.primates_assemblies.urls.txt) | parallel -j 4 'wget -q {} && echo got {}'"
 mv hs1.fa.gz chm13v2.fasta.gz
 
@@ -101,5 +103,86 @@ ls *fasta.gz | while read f; do
 
   $RUN_FASTIX -p "${prefix}#" <(zcat $f ) | bgzip -c -@48 > $prefix.fa.gz
   samtools faidx $prefix.fa.gz
+done
+```
+
+### Chromosome partitioning
+
+Map contigs against the references:
+
+```shell
+mkdir -p $DIR_BASE/partitioning
+cd $DIR_BASE/partitioning
+
+REFS=/lizardfs/guarracino/chromosome_communities/assemblies/chm13v2+grch38masked.fa.gz
+
+(ls $DIR_BASE/assemblies/*.fa.gz | grep 'chm13\|primates' -v) | while read FASTA; do
+  SPECIES=$(basename $FASTA .fa.gz | cut -f 1,2 -d '.');
+  echo $SPECIES
+  
+  PAF=$DIR_BASE/partitioning/$SPECIES.vs.ref.p90.paf
+  sbatch -p headnode -c 20 --wrap "$RUN_WFMASH -t 20 -m -N -s 50k -l 150k -p 90 -H 0.001 $REFS $FASTA > $PAF"
+done
+```
+
+Collect unmapped contigs and remap them in split mode:
+
+```shell
+REFS=/lizardfs/guarracino/chromosome_communities/assemblies/chm13v2+grch38masked.fa.gz
+
+(ls $DIR_BASE/assemblies/*.fa.gz | grep 'chm13\|primates' -v) | while read FASTA; do
+  SPECIES=$(basename $FASTA .fa.gz | cut -f 1,2 -d '.');
+  echo $SPECIES
+  
+  UNALIGNED=$DIR_BASE/partitioning/$SPECIES.unaligned
+  
+  PAF=$DIR_BASE/partitioning/$SPECIES.vs.ref.p90.paf
+  comm -23 <(cut -f 1 $FASTA.fai | sort) <(cut -f 1 $PAF | sort) > $UNALIGNED.txt
+  if [[ $(wc -l $UNALIGNED.txt | cut -f 1 -d ' ' ) != 0 ]];
+  then 
+    samtools faidx $FASTA $(tr '\n' ' ' < $UNALIGNED.txt) > $UNALIGNED.fa
+    samtools faidx $UNALIGNED.fa
+    sbatch -p headnode -c 20 --wrap "$RUN_WFMASH -t 20 -m -s 50k -l 150k -p 90 -H 0.001 $REFS $UNALIGNED.fa > $UNALIGNED.split.vs.ref.p90.paf"
+  fi
+done
+```
+
+Collect our best mapping for each of our attempted split rescues:
+
+```shell
+ls *.unaligned.split.vs.ref.p90.paf | while read PAF; do
+  cat $PAF | awk -v OFS='\t' '{ print $1,$11,$0 }' | sort -n -r -k 1,2 | \
+    awk -v OFS='\t' '$1 != last { print($3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15); last = $1; }'
+done > rescues.paf
+```
+
+Collect partitioned contigs:
+
+```shell
+( seq 6 7 ) | while read i; do cat *paf | grep -P -e "[chm13|grch38]#chr$i\t" | cut -f 1 | sort | uniq | awk '{print($0"$")}' > chr$i.contigs.txt; done
+
+( seq 6 7  ) | while read i; do
+    echo chr$i
+
+    rm chr$i.fa*
+    (ls $DIR_BASE/assemblies/*.fa.gz | grep 'chm13\|primates' -v) | while read FASTA; do
+      echo $FASTA
+
+      samtools faidx $FASTA $(cut -f 1 $FASTA.fai | grep -f chr$i.contigs.txt) >> chr$i.fa
+    done
+done
+
+REFS=/lizardfs/guarracino/chromosome_communities/assemblies/chm13v2+grch38masked.fa.gz
+
+( seq 6 7  ) | while read i; do
+    echo chr$i
+    # 4 haplotypes (from primates4) + 12 haplotypes (6 diploid assemblies) + 1 haplotype (chm13#chr$i)
+    cat \
+      chr$i.fa \
+      <(zcat /lizardfs/guarracino/pggb-paper/assemblies/primates4.chr6.fa.gz) \
+      <(samtools faidx $REFS $(grep chm13#chr$i $REFS.fai | cut -f 1)) \
+      > primates11.chr$i.fa
+    bgzip -@ 48 primates17.chr$i.fa
+    samtools faidx primates17.chr$i.fa.gz
 done
 ```

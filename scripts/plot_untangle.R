@@ -85,7 +85,7 @@ p
 #+ scale_alpha_discrete(range = c(0.3, 1))# + scale_x_reverse()
 ggsave(plot = p, path_output, width = width, height = length(unique(x$query.name))*0.75, units = "cm", dpi = 300, bg = "transparent", limitsize = FALSE)
 
-if (false){
+if (FALSE){
   library(png)
   library(grid)
   img <- readPNG(path_annotation)

@@ -93,7 +93,7 @@ mkdir -p $DIR_BASE/assemblies
 
 # T2T.primates_assemblies.urls.txt refers to assemblies in https://genomeark.github.io/t2t-draft-assembly/, but they were taken from https://genomeark.s3.amazonaws.com/index.html?prefix=species/ (11 January 2023)
 # https://docs.google.com/spreadsheets/d/1bWZ1SjCn6I34QMqXeg-zwzK7D-EDizw1GQCkQ_Ily6E/edit#gid=0
-sbatch -p workers -c 48 --wrap "cd $DIR_BASE/assemblies; (echo https://hgdownload.soe.ucsc.edu/goldenPath/hs1/bigZips/hs1.fa.gz; cat ../data/T2T.primates_assemblies.urls.txt) | parallel -j 4 'wget -q {} && echo got {}'"
+sbatch -p workers -c 48 --wrap "cd $DIR_BASE/assemblies; (echo https://hgdownload.soe.ucsc.edu/goldenPath/hs1/bigZips/hs1.fa.gz; cat ../data/T2T.primates_assemblies.urls.txt) | parallel -j 8 'wget -q {} && echo got {}'"
 mv hs1.fa.gz chm13v2.fasta.gz
 
 # Apply PanSN-spec
@@ -101,7 +101,7 @@ ls *fasta.gz | while read f; do
   echo $f
   prefix=$(echo $f | cut -f 1 -d '.')
 
-  $RUN_FASTIX -p "${prefix}#" <(zcat $f ) | bgzip -c -@48 > $prefix.fa.gz
+  $RUN_FASTIX -p "${prefix}#" <(zcat $f ) | sed -e 's/haplotype//g' -e 's/-/#/g' -e 's/unassigned/U/g' | bgzip -c -@ 48 > $prefix.fa.gz
   samtools faidx $prefix.fa.gz
 done
 ```
@@ -116,12 +116,12 @@ cd $DIR_BASE/partitioning
 
 REFS=/lizardfs/guarracino/chromosome_communities/assemblies/chm13v2+grch38masked.fa.gz
 
-(ls $DIR_BASE/assemblies/*.fa.gz | grep 'chm13\|primates' -v) | while read FASTA; do
+ls $DIR_BASE/assemblies/*.fa.gz | while read FASTA; do
   SPECIES=$(basename $FASTA .fa.gz | cut -f 1,2 -d '.');
   echo $SPECIES
   
   PAF=$DIR_BASE/partitioning/$SPECIES.vs.ref.p90.paf
-  sbatch -p headnode -c 20 --wrap "$RUN_WFMASH -t 20 -m -N -s 50k -l 150k -p 90 -H 0.001 $REFS $FASTA > $PAF"
+  sbatch -p workers -c 20 --wrap "$RUN_WFMASH -t 20 -m -N -s 50k -l 150k -p 90 -H 0.001 $REFS $FASTA > $PAF"
 done
 ```
 
@@ -142,7 +142,7 @@ REFS=/lizardfs/guarracino/chromosome_communities/assemblies/chm13v2+grch38masked
   then 
     samtools faidx $FASTA $(tr '\n' ' ' < $UNALIGNED.txt) > $UNALIGNED.fa
     samtools faidx $UNALIGNED.fa
-    sbatch -p headnode -c 20 --wrap "$RUN_WFMASH -t 20 -m -s 50k -l 150k -p 90 -H 0.001 $REFS $UNALIGNED.fa > $UNALIGNED.split.vs.ref.p90.paf"
+    sbatch -p workers -c 20 --wrap "$RUN_WFMASH -t 20 -m -s 50k -l 150k -p 90 -H 0.001 $REFS $UNALIGNED.fa > $UNALIGNED.split.vs.ref.p90.paf"
   fi
 done
 ```
@@ -159,7 +159,8 @@ done > rescues.paf
 Collect partitioned contigs:
 
 ```shell
-( seq 6 7 ) | while read i; do cat *paf | grep -P -e "[chm13|grch38]#chr$i\t" | cut -f 1 | sort | uniq | awk '{print($0"$")}' > chr$i.contigs.txt; done
+# Take only haplotype-assigned contigs
+( seq 6 7 ) | while read i; do cat *paf | grep -P -e "[chm13|grch38]#chr$i\t" | grep '#U#' -v | cut -f 1 | sort | uniq | awk '{print($0"$")}' > chr$i.contigs.txt; done
 
 ( seq 6 7  ) | while read i; do
     echo chr$i

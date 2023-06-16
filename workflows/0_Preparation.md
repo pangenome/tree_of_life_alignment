@@ -247,9 +247,9 @@ Collect partitioned contigs:
 
 ```shell
 # Take only haplotype-assigned contigs
-( seq 6 7 ) | while read i; do cat *paf | grep -P -e "[chm13|grch38]#chr$i\t" | grep '#U#' -v | cut -f 1 | sort | uniq | awk '{print($0"$")}' > chr$i.contigs.txt; done
+( seq 6 7 8 ) | while read i; do cat *paf | grep -P -e "[chm13|grch38]#chr$i\t" | grep '#U#' -v | cut -f 1 | sort | uniq | awk '{print($0"$")}' > chr$i.contigs.txt; done
 
-( seq 6 7  ) | while read i; do
+( seq 6 7 8  ) | while read i; do
     echo chr$i
 
     rm chr$i.fa*
@@ -262,6 +262,7 @@ done
 
 REFS=/lizardfs/guarracino/chromosome_communities/assemblies/chm13v2+grch38masked.fa.gz
 
+# Only chr 6 and 7 are available from primates4
 ( seq 6 7 ) | while read i; do
     echo chr$i
     # 4 haplotypes (from primates4) + 12 haplotypes (6 diploid assemblies) + 1 haplotype (chm13#chr$i)
@@ -272,5 +273,16 @@ REFS=/lizardfs/guarracino/chromosome_communities/assemblies/chm13v2+grch38masked
       > primates17.chr$i.fa
     bgzip -@ 48 primates17.chr$i.fa
     samtools faidx primates17.chr$i.fa.gz
+done
+
+( seq 8 8 ) | while read i; do
+    echo chr$i
+    # 12 haplotypes (6 diploid assemblies) + 2 haplotype (chm13#chr$i and grch38#chr$i)
+    cat \
+      chr$i.fa \
+      <(samtools faidx $REFS $(grep hr$i $REFS.fai | cut -f 1)) \
+      > primates14.chr$i.fa
+    bgzip -@ 48 primates14.chr$i.fa
+    samtools faidx primates14.chr$i.fa.gz
 done
 ```

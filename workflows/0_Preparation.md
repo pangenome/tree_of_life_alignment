@@ -1,6 +1,6 @@
 # Preparation
 
-Variables:
+Variables on `octopus`:
 
 ```shell
 DIR_BASE=/lizardfs/guarracino/tree_of_life_alignment
@@ -13,12 +13,16 @@ RUN_WFMASH=/home/guarracino/tools/wfmash/build/bin/wfmash-191afe12042962d3c0d5c6
 ```shell
 mkdir -p ~/tools/
 cd ~/tools/
+```
 
+On `octopus`:
+
+```shell
 git clone --recursive https://github.com/waveygang/wfmash
 cd wfmash
 git checkout master
 git pull
-git checkout cb0ce952a9bec3f2c8c78b98679375e5275e05db
+git checkout 8ba3c53f327731ca515abd1ef32179f15acb9732
 git submodule update --init --recursive
 cmake -H. -DCMAKE_BUILD_TYPE=Release -Bbuild && cmake --build build -- -j $(nproc)
 mv build/bin/wfmash build/bin/wfmash-cb0ce952a9bec3f2c8c78b98679375e5275e05db
@@ -85,15 +89,50 @@ mv target/release/fastix target/release/fastix-331c1159ea16625ee79d1a82522e800c9
 cd ..
 ```
 
+On `snellius`:
+
+```shell
+# Load modules on Snellius (Jemalloc is missing!)
+#module load 2022
+#module load binutils/2.38-GCCcore-11.3.0 # to avoid "as: unrecognized option '--gdwarf-5'"
+#module load CMake/3.23.1-GCCcore-11.3.0 # to avoid "cmake: symbol lookup error"
+#module load HTSlib/1.15.1-GCC-11.3.0
+#module load zlib/1.2.12-GCCcore-11.3.0
+#module load GSL/2.7-GCC-11.3.0
+#module load HTSlib/1.15.1-GCC-11.3.0
+
+module load 2022
+
+# Parallel
+module load parallel/20220722-GCCcore-11.3.0
+
+# Prepare conda and install wfmash and seqwish
+module load Miniconda3/4.12.0
+conda create --prefix=~/tools/conda
+conda activate ~/tools/conda
+conda install -c bioconda -c conda-forge wfmash==0.10.3
+conda install -c bioconda -c conda-forge seqwish==0.7.9
+
+# Prepare Rust and build fastix
+module load Rust/1.60.0-GCCcore-11.3.0
+
+git clone --recursive https://github.com/ekg/fastix.git
+cd fastix
+git checkout 331c1159ea16625ee79d1a82522e800c99206834
+cargo build --release
+mv target/release/fastix target/release/fastix-331c1159ea16625ee79d1a82522e800c99206834
+```
 
 ## Assemblies
+
+On `octopus`:
 
 ```shell
 mkdir -p $DIR_BASE/assemblies
 
 # T2T.primates_assemblies.urls.txt refers to assemblies in https://genomeark.github.io/t2t-draft-assembly/, but they were taken from https://genomeark.s3.amazonaws.com/index.html?prefix=species/ (11 January 2023)
 # https://docs.google.com/spreadsheets/d/1bWZ1SjCn6I34QMqXeg-zwzK7D-EDizw1GQCkQ_Ily6E/edit#gid=0
-sbatch -p workers -c 48 --wrap "cd $DIR_BASE/assemblies; (echo https://hgdownload.soe.ucsc.edu/goldenPath/hs1/bigZips/hs1.fa.gz; cat ../data/T2T.primates_assemblies.urls.txt) | parallel -j 8 'wget -q {} && echo got {}'"
+sbatch -c 1 --wrap "cd $DIR_BASE/assemblies; (echo https://hgdownload.soe.ucsc.edu/goldenPath/hs1/bigZips/hs1.fa.gz; cat ../data/T2T.primates_assemblies.urls.txt) | parallel -j 8 'wget -q {} && echo got {}'"
 mv hs1.fa.gz chm13v2.fasta.gz
 
 # Apply PanSN-spec
@@ -104,6 +143,54 @@ ls *fasta.gz | while read f; do
   $RUN_FASTIX -p "${prefix}#" <(zcat $f ) | sed -e 's/haplotype//g' -e 's/-/#/g' -e 's/unassigned/U/g' | bgzip -c -@ 48 > $prefix.fa.gz
   samtools faidx $prefix.fa.gz
 done
+```
+
+On `snellius`:
+
+```shell
+#!/bin/bash
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --partition=thin
+#SBATCH --time=01:00:00
+
+hostname
+
+module load 2022
+module load parallel/20220722-GCCcore-11.3.0
+module load HTSlib/1.15.1-GCC-11.3.0 # for bgzip
+module load SAMtools/1.15.1-GCC-11.3.0
+
+DIR_BASE=/home/aguarracino/tree_of_life_alignment
+RUN_FASTIX=~/tools/fastix/target/release/fastix-331c1159ea16625ee79d1a82522e800c99206834
+
+cd $DIR_BASE/assemblies
+
+(echo https://hgdownload.soe.ucsc.edu/goldenPath/hs1/bigZips/hs1.fa.gz; cat $DIR_BASE/data/T2T.primates_assemblies.urls.txt) | parallel -j 8 'wget -q {} && echo got {}'
+
+# Apply PanSN-spec
+ls *fasta.gz | while read f; do
+  echo $f
+  prefix=$(echo $f | cut -f 1 -d '.')
+
+  $RUN_FASTIX -p "${prefix}#" <(zcat $f ) | sed -e 's/haplotype//g' -e 's/-/#/g' -e 's/unassigned/U/g' | bgzip -c -@ 8 > $prefix.fa.gz
+  samtools faidx $prefix.fa.gz
+done
+
+mv hs1.fa.gz chm13v2.fasta.gz
+$RUN_FASTIX -p "chm13v2#1#" <(zcat chm13v2.fasta.gz ) | bgzip -c -@ 8 > chm13v2.fa.gz
+samtools faidx chm13v2.fa.gz
+
+rm *fasta.gz
+
+zcat *fa.gz | bgzip -c -@ 8 > primates13.fasta.gz
+mv primates13.fasta.gz primates13.fa.gz
+samtools faidx primates13.fa.gz
+```
+
+```shell
+sbatch download.sh
 ```
 
 ### Chromosome partitioning

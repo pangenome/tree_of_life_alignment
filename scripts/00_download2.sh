@@ -13,7 +13,7 @@ RUN_DATASETS=~/tools/ncbi_datasets/datasets
 mkdir -p $DIR_BASE/assemblies/vgp
 cd $DIR_BASE/assemblies/vgp
 
-split -n l/20 $DIR_BASE/data/VGP.assemblies.2023.07.04.txt VGP.assemblies.2023.07.04_
+split -n l/100 $DIR_BASE/data/VGP.assemblies.2023.07.04.txt VGP.assemblies.2023.07.04_
 
 ls VGP.assemblies.2023.07.04_* | while read f; do
   SUFFIX=$(echo $f | cut -f 2 -d '_');

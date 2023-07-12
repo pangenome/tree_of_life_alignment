@@ -19,6 +19,7 @@ $DATASETS download genome accession --inputfile /lizardfs/guarracino/tree_of_lif
 mkdir -p /lizardfs/guarracino/tree_of_life_alignment/assemblies/vgp
 cd /lizardfs/guarracino/tree_of_life_alignment/assemblies/vgp
 mv /scratch/xxx.zip xxx.zip
+zip -T xxx.zip # test if the file is corrupted
 unzip xxx.zip
 rm xxx.zip README.md
 

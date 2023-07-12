@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=48
+#SBATCH --cpus-per-task=64
 #SBATCH --partition=thin
 #SBATCH --time=06:00:00
 
@@ -26,7 +26,7 @@ ls xxx_*.zip | while read f; do
 	  echo $PREFIX
 
 	  # `cut -f 1` to trim the headers
-	  $FASTIX -p "${PREFIX}#1#" <(cat $g | cut -f 1) | bgzip -@ 48 -l 9 -c > $PREFIX.fa.gz;
+	  $FASTIX -p "${PREFIX}#1#" <(cat $g | cut -f 1) | bgzip -@ 64 -l 9 -c > $PREFIX.fa.gz;
 	  rm $g
 	done
 

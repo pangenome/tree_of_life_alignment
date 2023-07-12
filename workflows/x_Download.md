@@ -9,6 +9,7 @@ chmod +x datasets dataformat
 
 DATASETS=~/tools/ncbi_datasets/datasets
 
+cd ~/tree_of_life_alignment/data
 #awk -v FS='\t' '$14 != ""' VGP\ Ordinal\ List\ -\ VGP\ Phase\ 1+.tsv | cut -f 14 | grep GCA | sed '1d' | wc -l > VGP.assemblies.2023.07.04.txt
 
 cd /scratch
@@ -38,4 +39,5 @@ cat ncbi_dataset/data/*/*.fna | bgzip -@ 48 -l 9 > VGP.assemblies.2023.07.04.bac
 rm -rf ncbi_dataset
 
 zcat GCA*.fa.gz | bgzip -@ 48 -l 9 > vgp290.fa.gz
+samtools faidx vgp290.fa.gz
 ```

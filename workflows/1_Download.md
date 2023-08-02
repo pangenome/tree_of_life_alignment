@@ -34,3 +34,13 @@ Merge all assemblies, putting the file on `/scratch-shared`. This folder is visi
 ```shell
 sbatch 02_merge.sh
 ```
+
+
+```shell
+mkdir -p $DIR_BASE/mappings
+cd $DIR_BASE/mappings
+DIR_BASE=/home/aguarracino/tree_of_life_alignment
+ls $DIR_BASE/assemblies/vgp/*.fa.gz | while read TARGET; do
+  sbatch 03_mapping.sh $TARGET /scratch-shared/tmp.6i2z9n9QzB/vgp290.fasta.gz
+done
+```

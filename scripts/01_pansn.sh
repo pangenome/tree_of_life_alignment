@@ -7,6 +7,7 @@
 
 module load 2022
 module load HTSlib/1.15.1-GCC-11.3.0 # for bgzip
+module load SAMtools/1.15.1-GCC-11.3.0 # for samtools
 
 DIR_BASE=/home/aguarracino/tree_of_life_alignment
 FASTIX=~/tools/fastix/target/release/fastix-331c1159ea16625ee79d1a82522e800c99206834
@@ -26,7 +27,8 @@ ls xxx_*.zip | while read f; do
 	  echo $PREFIX
 
 	  # `cut -f 1` to trim the headers
-	  $FASTIX -p "${PREFIX}#1#" <(cat $g | cut -f 1) | bgzip -@ 64 -l 9 -c > $PREFIX.fa.gz;
+	  $FASTIX -p "${PREFIX}#1#" <(cat $g | cut -f 1) | bgzip -@ 64 -l 9 -c > $PREFIX.fa.gz
+	  samtools faidx $PREFIX.fa.gz
 	  rm $g
 	done
 

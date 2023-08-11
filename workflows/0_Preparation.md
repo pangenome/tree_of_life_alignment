@@ -92,7 +92,7 @@ cd ..
 On `snellius`:
 
 ```shell
-# Load modules on Snellius (Jemalloc is missing!)
+# wfmash from scratch: load modules on Snellius (Jemalloc is missing!)
 #module load 2022
 #module load binutils/2.38-GCCcore-11.3.0 # to avoid "as: unrecognized option '--gdwarf-5'"
 #module load CMake/3.23.1-GCCcore-11.3.0 # to avoid "cmake: symbol lookup error"
@@ -121,4 +121,30 @@ cd fastix
 git checkout 331c1159ea16625ee79d1a82522e800c99206834
 cargo build --release
 mv target/release/fastix target/release/fastix-331c1159ea16625ee79d1a82522e800c99206834
+
+# wfmash via nix
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+cargo install nix-user-chroot
+echo 'export PATH="$PATH:/home/aguarracino/.cargo/bin"' >> ~/.bashrc
+source ~/.bashrc
+
+
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+cargo install nix-user-chroot
+
+mkdir -m 0755 ~/.nix
+nix-user-chroot ~/.nix bash -c 'curl -L https://nixos.org/nix/install | sh'
+. /home/aguarracino/.nix-profile/etc/profile.d/nix.sh
+
+cd ~/tools
+git clone https://github.com/ekg/using-nix.git
+echo 'export PATH="$PATH:/home/aguarracino/tools/using-nix"' >> ~/.bashrc
+source ~/.bashrc
+
+git clone --recursive https://github.com/waveygang/wfmash.git
+cd wfmash
+nix-user-chroot ~/.nix $SHELL
+nix-build && nix-env -i ./result
 ```

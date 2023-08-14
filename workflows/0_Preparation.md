@@ -136,7 +136,7 @@ cargo install nix-user-chroot
 
 mkdir -m 0755 ~/.nix
 nix-user-chroot ~/.nix bash -c 'curl -L https://nixos.org/nix/install | sh'
-. /home/aguarracino/.nix-profile/etc/profile.d/nix.sh
+. /home/aguarracino/.nix/store/3wqasl97rjiza3vd7fxjnvli2w9l30mk-nix-2.17.0/etc/profile.d/nix.sh
 
 cd ~/tools
 git clone https://github.com/ekg/using-nix.git
